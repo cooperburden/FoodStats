@@ -15,8 +15,11 @@ set search_path = public
 stable
 as $$
   select exists (
-    select 1 from public.editor_allowlist e
-    where lower(trim(e.email)) = lower(trim(coalesce((auth.jwt() ->> 'email')::text, '')))
+    select 1
+    from auth.users u
+    inner join public.editor_allowlist e
+      on lower(trim(u.email::text)) = lower(trim(e.email))
+    where u.id = auth.uid()
   );
 $$;
 

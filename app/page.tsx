@@ -290,14 +290,6 @@ export default function Home() {
     setIsSaving(false);
   }
 
-  async function handleSignOut() {
-    if (!supabase) {
-      return;
-    }
-    setStatus("");
-    await supabase.auth.signOut();
-  }
-
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
       <header className="space-y-2">
@@ -320,20 +312,19 @@ export default function Home() {
                 Checking sign-in…
               </p>
             ) : user ? (
-              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900/50">
-                <span className="font-medium text-zinc-900 dark:text-zinc-100">
+              <div className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm sm:flex-row sm:items-center sm:justify-between dark:border-zinc-700 dark:bg-zinc-900/50">
+                <span className="min-w-0 break-all font-medium text-zinc-900 dark:text-zinc-100">
                   {user.email}
-                  <span className="ml-2 font-normal text-zinc-600 dark:text-zinc-400">
+                  <span className="ml-2 block font-normal text-zinc-600 sm:inline dark:text-zinc-400">
                     {canEdit ? "(editor)" : "(view only)"}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  onClick={handleSignOut}
-                  className="font-medium text-zinc-900 underline dark:text-zinc-100"
+                <a
+                  href="/auth/signout"
+                  className="inline-flex shrink-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 py-2 text-center text-sm font-semibold text-zinc-900 shadow-sm hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:bg-zinc-700"
                 >
                   Sign out
-                </button>
+                </a>
               </div>
             ) : (
               <Link
