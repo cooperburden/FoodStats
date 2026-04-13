@@ -1,19 +1,11 @@
-create extension if not exists "pgcrypto";
+-- RUN THIS ENTIRE FILE in Supabase SQL Editor (fixes "view only" + meal inserts).
+-- Does not use auth.users inside functions (often fails for RPC/RLS).
 
--- Emails allowed to insert/update/delete meals (add rows after creating users).
-create table if not exists public.editor_allowlist (
-  email text primary key
-);
-
-alter table public.editor_allowlist enable row level security;
-
-create table if not exists public.editor_allowlist_ids (
-  user_id uuid primary key references auth.users (id) on delete cascade
-);
-
-alter table public.editor_allowlist_ids enable row level security;
-
+-- ---------------------------------------------------------------------------
+-- Allow authenticated clients to verify editor status (small private app).
+-- ---------------------------------------------------------------------------
 drop policy if exists "Authenticated read editor allowlist" on public.editor_allowlist;
+drop policy if exists "Public read editor emails for self" on public.editor_allowlist;
 create policy "Authenticated read editor allowlist"
 on public.editor_allowlist for select
 to authenticated
@@ -28,18 +20,9 @@ using (user_id = auth.uid());
 grant select on public.editor_allowlist to authenticated;
 grant select on public.editor_allowlist_ids to authenticated;
 
-create table if not exists public.meal_entries (
-  id uuid primary key default gen_random_uuid(),
-  restaurant text not null,
-  location_name text not null,
-  ordered_items text[] not null default '{}',
-  ate_by text not null check (ate_by in ('cooper', 'tia', 'both')),
-  eaten_at timestamptz not null default now(),
-  created_at timestamptz not null default now()
-);
-
-alter table public.meal_entries enable row level security;
-
+-- ---------------------------------------------------------------------------
+-- is_editor(): JWT email + user_metadata email + UUID table (no auth.users)
+-- ---------------------------------------------------------------------------
 create or replace function public.is_editor()
 returns boolean
 language sql
@@ -62,24 +45,15 @@ $$;
 revoke all on function public.is_editor() from public;
 grant execute on function public.is_editor() to authenticated;
 
-drop policy if exists "Public read meal entries" on public.meal_entries;
-create policy "Public read meal entries"
-on public.meal_entries
-for select
-to anon, authenticated
-using (true);
-
-drop policy if exists "Authenticated write meal entries" on public.meal_entries;
-drop policy if exists "Anon insert meal entries" on public.meal_entries;
-drop policy if exists "Authenticated update meal entries" on public.meal_entries;
-drop policy if exists "Authenticated delete meal entries" on public.meal_entries;
+-- ---------------------------------------------------------------------------
+-- Meal writes: same logic inline (so inserts work even if RPC is weird)
+-- ---------------------------------------------------------------------------
 drop policy if exists "Editors insert meal entries" on public.meal_entries;
 drop policy if exists "Editors update meal entries" on public.meal_entries;
 drop policy if exists "Editors delete meal entries" on public.meal_entries;
 
 create policy "Editors insert meal entries"
-on public.meal_entries
-for insert
+on public.meal_entries for insert
 to authenticated
 with check (
   exists (select 1 from public.editor_allowlist_ids i where i.user_id = auth.uid())
@@ -94,8 +68,7 @@ with check (
 );
 
 create policy "Editors update meal entries"
-on public.meal_entries
-for update
+on public.meal_entries for update
 to authenticated
 using (
   exists (select 1 from public.editor_allowlist_ids i where i.user_id = auth.uid())
@@ -121,8 +94,7 @@ with check (
 );
 
 create policy "Editors delete meal entries"
-on public.meal_entries
-for delete
+on public.meal_entries for delete
 to authenticated
 using (
   exists (select 1 from public.editor_allowlist_ids i where i.user_id = auth.uid())
@@ -136,5 +108,9 @@ using (
   )
 );
 
--- After first deploy, insert allowlisted emails (SQL Editor), e.g.:
--- insert into public.editor_allowlist (email) values ('a@b.com'), ('c@d.com');
+-- ---------------------------------------------------------------------------
+-- Verify your Auth user id matches editor_allowlist_ids (run as postgres):
+-- select id, email from auth.users where email ilike '%cooperburden%';
+-- If id is not 3e103794-..., fix with:
+-- delete from public.editor_allowlist_ids where user_id = '3e103794-451c-4adf-82f2-9d35db67ebcb';
+-- insert into public.editor_allowlist_ids (user_id) values ('CORRECT-ID-HERE');

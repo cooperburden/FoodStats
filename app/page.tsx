@@ -130,6 +130,48 @@ export default function Home() {
         setEditorCheckError("");
         return;
       }
+
+      const email = sessionUser.email?.trim();
+      if (email) {
+        const { data: emailRow, error: emailErr } = await client
+          .from("editor_allowlist")
+          .select("email")
+          .eq("email", email)
+          .maybeSingle();
+        if (cancelled) {
+          return;
+        }
+        if (emailErr) {
+          setCanEdit(false);
+          setEditorCheckError(`Allowlist read failed: ${emailErr.message}. Run supabase/fix_editor_complete_v2.sql in Supabase.`);
+          return;
+        }
+        if (emailRow) {
+          setEditorCheckError("");
+          setCanEdit(true);
+          return;
+        }
+      }
+
+      const { data: idRow, error: idErr } = await client
+        .from("editor_allowlist_ids")
+        .select("user_id")
+        .eq("user_id", sessionUser.id)
+        .maybeSingle();
+      if (cancelled) {
+        return;
+      }
+      if (idErr) {
+        setCanEdit(false);
+        setEditorCheckError(`Allowlist read failed: ${idErr.message}. Run supabase/fix_editor_complete_v2.sql in Supabase.`);
+        return;
+      }
+      if (idRow) {
+        setEditorCheckError("");
+        setCanEdit(true);
+        return;
+      }
+
       const { data, error } = await client.rpc("is_editor");
       if (cancelled) {
         return;
@@ -137,7 +179,7 @@ export default function Home() {
       if (error) {
         setCanEdit(false);
         setEditorCheckError(
-          `Editor check failed: ${error.message}. Run supabase/fix_editor_access.sql in Supabase.`,
+          `Editor check failed: ${error.message}. Run supabase/fix_editor_complete_v2.sql in Supabase.`,
         );
         return;
       }
