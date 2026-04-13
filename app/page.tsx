@@ -91,6 +91,7 @@ export default function Home() {
   const [status, setStatus] = useState<string>("");
   const [user, setUser] = useState<User | null>(null);
   const [canEdit, setCanEdit] = useState(false);
+  const [editorCheckError, setEditorCheckError] = useState<string>("");
   const [authReady, setAuthReady] = useState(() => !hasSupabaseEnv);
 
   useEffect(() => {
@@ -126,6 +127,7 @@ export default function Home() {
     async function refreshEditorFlag(sessionUser: User | null) {
       if (!sessionUser) {
         setCanEdit(false);
+        setEditorCheckError("");
         return;
       }
       const { data, error } = await client.rpc("is_editor");
@@ -134,8 +136,12 @@ export default function Home() {
       }
       if (error) {
         setCanEdit(false);
+        setEditorCheckError(
+          `Editor check failed: ${error.message}. Run supabase/fix_editor_access.sql in Supabase.`,
+        );
         return;
       }
+      setEditorCheckError("");
       setCanEdit(Boolean(data));
     }
 
@@ -336,6 +342,9 @@ export default function Home() {
             )
           ) : null}
         </div>
+        {editorCheckError ? (
+          <p className="text-xs text-red-600 dark:text-red-400">{editorCheckError}</p>
+        ) : null}
         {status ? <p className="text-xs text-amber-600">{status}</p> : null}
       </header>
 
